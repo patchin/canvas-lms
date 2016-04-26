@@ -27,6 +27,7 @@ define([
   'compiled/quizzes/log_auditing',
   'compiled/quizzes/dump_events',
   'compiled/views/editor/KeyboardShortcuts',
+  'jsx/shared/rce/RichContentEditor',
   'jquery.ajaxJSON' /* ajaxJSON */,
   'jquery.toJSON',
   'jquery.instructure_date_and_time' /* friendlyDatetime, friendlyDate */,
@@ -40,11 +41,19 @@ define([
   'compiled/behaviors/quiz_selectmenu'
 ], function(FileUploadQuestionView, File, I18n, $, autoBlurActiveInput, _,
             LDBLoginPopup, QuizTakingPolice, QuizLogAuditing,
-            QuizLogAuditingEventDumper, KeyboardShortcuts) {
+            QuizLogAuditingEventDumper, KeyboardShortcuts, RichContentEditor) {
+
+  var richContentEditor = new RichContentEditor({riskLevel: "highrisk"});
+  richContentEditor.preloadRemoteModule();
 
   var lastAnswerSelected = null;
   var lastSuccessfulSubmissionData = null;
   var showDeauthorizedDialog;
+
+  // need to keep a top level reference or
+  // it can get garbage collected
+  var quizTakingPoliceTopLevel = null;
+
   var quizSubmission = (function() {
     var timeMod = 0,
         endAt = $(".end_at"),
@@ -551,7 +560,7 @@ define([
         }
 
         if (tagName == "TEXTAREA") {
-          val = $this.editorBox('get_code');
+          val = richContentEditor.callOnRCE($this, 'get_code');
         } else if ($this.attr('type') == "text" || $this.attr('type') == 'hidden') {
           val = $this.val();
         } else if (tagName == "SELECT") {
@@ -664,20 +673,20 @@ define([
     setTimeout(function() {
       $(".question_holder textarea.question_input").each(function() {
         $(this).attr('id', 'question_input_' + quizSubmission.contentBoxCounter++);
-        $(this).editorBox();
+        richContentEditor.loadNewEditor($(this));
       });
     }, 2000);
 
     if (QuizTakingPolice) {
-      var quizTakingPolice = new QuizTakingPolice();
+      quizTakingPoliceTopLevel = new QuizTakingPolice();
 
-      quizTakingPolice.addEventListener('message', function(e) {
+      quizTakingPoliceTopLevel.addEventListener('message', function(e) {
         if (e.data === 'stopwatchTick') {
           quizSubmission.updateTime();
         }
       });
 
-      quizTakingPolice.postMessage({
+      quizTakingPoliceTopLevel.postMessage({
         code: 'startStopwatch',
         frequency: quizSubmission.clockInterval
       });

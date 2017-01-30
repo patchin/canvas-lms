@@ -375,6 +375,8 @@ describe ContentMigration do
       @copy_from.allow_student_forum_attachments = false
       @copy_from.default_wiki_editing_roles = 'teachers'
       @copy_from.allow_student_organized_groups = false
+      @copy_from.show_announcements_on_home_page = false
+      @copy_from.home_page_announcement_limit = nil
       @copy_from.default_view = 'modules'
       @copy_from.open_enrollment = true
       @copy_from.storage_quota = 444
@@ -646,6 +648,21 @@ describe ContentMigration do
       tag1 = mod.add_item({ :title => 'Example 1', :type => 'external_url', :url => 'http://derp.derp/something' })
       tag1.publish!
       tag2 = mod.add_item({ :title => 'Example 2', :type => 'external_url', :url => 'http://derp.derp/something2' })
+
+      run_course_copy
+
+      new_tag1 = @copy_to.context_module_tags.where(:migration_id => mig_id(tag1)).first
+      new_tag2 = @copy_to.context_module_tags.where(:migration_id => mig_id(tag2)).first
+      expect(new_tag1).to be_published
+      expect(new_tag2).to be_unpublished
+    end
+
+    it "preserves publish state of external tool items" do
+      tool = @copy_from.context_external_tools.create!(:name => "b", :url => "http://derp.derp/somethingelse", :consumer_key => '12345', :shared_secret => 'secret')
+      mod = @copy_from.context_modules.create!(:name => "some module")
+      tag1 = mod.add_item :type => 'context_external_tool', :id => tool.id, :url => "#{tool.url}?queryyyyy=something"
+      tag1.publish!
+      tag2 = mod.add_item :type => 'context_external_tool', :id => tool.id, :url => "#{tool.url}?queryyyyy=something"
 
       run_course_copy
 
